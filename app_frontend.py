@@ -13,6 +13,7 @@ try:
     model = load_model()
     st.sidebar.success("Model loaded successfully!")
 except Exception as e:
+    model = None
     st.sidebar.error(f"Error loading model: {str(e)}")
 
 tab1, tab2 = st.tabs(["Single Prediction", "Batch Prediction"])
@@ -43,7 +44,7 @@ with tab1:
         "Product_Type_Category": product_type_cat
     }
 
-    if st.button("Forecast Sales"):
+    if st.button("Forecast Sales", disabled=model is None):
         try:
             input_df = pd.DataFrame([payload])
             prediction = model.predict(input_df)[0]
@@ -59,7 +60,7 @@ with tab2:
         st.subheader("Uploaded Data Preview")
         st.dataframe(input_df.head())
         
-        if st.button("Process Batch Forecast"):
+        if st.button("Process Batch Forecast", disabled=model is None):
             try:
                 predictions = model.predict(input_df)
                 out_df = input_df.copy()
