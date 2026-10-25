@@ -1,11 +1,20 @@
 import streamlit as st
-import requests
 import pandas as pd
+import joblib
 
 st.set_page_config(page_title="SuperKart Sales Forecaster", layout="wide")
 st.title("🏪 SuperKart Sales Forecasting Dashboard")
 
-backend_url = st.sidebar.text_input("Backend API Base URL", value="http://backend:7860")
+@st.cache_resource
+def load_model():
+    return joblib.load('superkart_model.joblib')
+
+try:
+    model = load_model()
+    st.sidebar.success("Model loaded successfully!")
+except Exception as e:
+    st.sidebar.error(f"Error loading model: {str(e)}")
+
 tab1, tab2 = st.tabs(["Single Prediction", "Batch Prediction"])
 
 with tab1:
@@ -35,8 +44,35 @@ with tab1:
     }
 
     if st.button("Forecast Sales"):
-        res = requests.post(f"{backend_url}/v1/predict", json=payload)
-        if res.status_code == 200:
-            st.success(f"Predicted Sales: ${res.json().get('prediction'):,.2f}")
-        else:
-            st.error(res.text)
+        try:
+            input_df = pd.DataFrame([payload])
+            prediction = model.predict(input_df)[0]
+            st.success(f"💰 Predicted Store Sales Revenue: ${prediction:,.2f}")
+        except Exception as e:
+            st.error(f"Error generating prediction: {str(e)}")
+
+with tab2:
+    st.header("Upload CSV for Batch Sales Predictions")
+    uploaded_file = st.file_uploader("Choose a CSV file", type=["csv"])
+    if uploaded_file is not None:
+        input_df = pd.read_csv(uploaded_file)
+        st.subheader("Uploaded Data Preview")
+        st.dataframe(input_df.head())
+        
+        if st.button("Process Batch Forecast"):
+            try:
+                predictions = model.predict(input_df)
+                out_df = input_df.copy()
+                out_df['Predicted_Sales'] = predictions
+                st.success("🎉 Batch Forecasting Completed!")
+                st.subheader("Results Summary Preview")
+                st.dataframe(out_df.head())
+                csv_data = out_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download Completed Forecasts (CSV)",
+                    data=csv_data,
+                    file_name="SuperKart_Sales_Forecasts.csv",
+                    mime="text/csv"
+                )
+            except Exception as e:
+                st.error(f"Error processing batch: {str(e)}")
